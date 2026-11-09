@@ -20,23 +20,36 @@ if [[ ! -t 0 ]]; then
   echo 'Run this script from an interactive terminal (passwords are entered interactively).' >&2
   exit 1
 fi
-if ! curl --fail --silent --show-error --output /dev/null http://127.0.0.1:8800/v1/properties; then
+if [[ ! -r /proc/device-tree/compatible ]]; then
+  echo 'Cannot identify an official Uno Q / Ventuno Q board.' >&2
+  exit 1
+fi
+compatible="$(tr '\000' '\n' </proc/device-tree/compatible)"
+if ! grep -qxE 'arduino,(imola|monza)' <<<"$compatible"; then
+  echo 'This script only supports official Uno Q / Ventuno Q boards.' >&2
+  exit 1
+fi
+if ! curl --fail --silent --show-error --connect-timeout 5 --max-time 30 \
+  --output /dev/null http://127.0.0.1:8800/v1/properties; then
   echo 'Arduino App CLI daemon API is not reachable on 127.0.0.1:8800.' >&2
   exit 1
 fi
 
 set_setup_done() {
-  curl --fail --silent --show-error --output /dev/null --request PUT \
+  curl --fail --silent --show-error --connect-timeout 5 --max-time 30 \
+    --output /dev/null --request PUT \
     --data-binary 'done' "http://127.0.0.1:8800/v1/properties/$1"
 }
 
 password_is_valid() {
   local password="$1" trimmed="${1#"${1%%[![:space:]]*}"}"
   trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
-  (( ${#trimmed} >= 8 )) && [[ "${password,,}" != *arduino* ]]
+  # shortcut: arduino-passwd uses bare read; reject altered input until the image helper preserves it.
+  (( ${#password} >= 8 )) && [[ "$password" == "$trimmed" && "$password" != *\\* && "${password,,}" != *arduino* ]]
 }
 
-if password_is_valid '        ' || ! password_is_valid 'valid-pass-8' || password_is_valid 'arduino123'; then
+if password_is_valid '        ' || ! password_is_valid 'valid-pass-8' || password_is_valid 'arduino123' \
+  || password_is_valid 'valid\pass-8' || password_is_valid ' valid-pass-8' || password_is_valid 'valid-pass-8 '; then
   echo 'Internal password validation check failed.' >&2
   exit 1
 fi
@@ -49,8 +62,15 @@ ask_yes_no() {
 
 ask_yes_no_default_yes() {
   local prompt="$1" answer
-  read -r -p "$prompt [Y/n] " answer
-  [[ ! "$answer" =~ ^[Nn]([Oo])?$ ]]
+  if ! read -r -p "$prompt [Y/n] " answer; then
+    echo 'Could not read Network Mode confirmation; stopped.' >&2
+    exit 1
+  fi
+  case "${answer,,}" in
+    ''|y|yes) return 0 ;;
+    n|no) return 1 ;;
+    *) echo 'Answer y/yes, n/no, or leave blank; stopped.' >&2; exit 1 ;;
+  esac
 }
 
 printf '%s\n' 'Arduino App Lab-style board setup'
@@ -127,12 +147,12 @@ fi
 network_password=''
 if [[ "$needs_password" == true ]]; then
   while true; do
-    IFS= read -r -s -p 'New Linux password (minimum 8 non-edge-whitespace characters; must not contain "arduino"): ' new_password
+    IFS= read -r -s -p 'New Linux password (minimum 8 characters; no edge whitespace, backslashes, or "arduino"): ' new_password
     printf '\n'
     IFS= read -r -s -p 'Confirm new Linux password: ' confirm_password
     printf '\n'
     if ! password_is_valid "$new_password"; then
-      echo 'Password must contain at least 8 non-edge-whitespace characters and not contain "arduino".' >&2
+      echo 'Password must contain at least 8 characters, no edge whitespace or backslashes, and not contain "arduino".' >&2
     elif [[ "$new_password" != "$confirm_password" ]]; then
       echo 'Passwords do not match.' >&2
     else

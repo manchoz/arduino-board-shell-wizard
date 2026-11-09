@@ -27,6 +27,10 @@ Clearing the credentials flag does not expire or restore the Linux password. App
 
 The setup script calls `sudo /usr/local/bin/arduino-passwd` explicitly, so it does not require `/usr/local/bin` in sudo's `secure_path`. It also queries `chage` in the C locale because it parses English field names. Neither script modifies sudoers or expires the account.
 
+New passwords must have at least eight characters, must not contain `arduino` (case-insensitive) or backslashes, and must not start/end with whitespace. The installed helper uses bare `read`, which can alter backslashes and edge whitespace; setup rejects those passwords rather than silently changing them.
+
+Setup verifies the device-tree identity before making changes. Its Network Mode prompt accepts blank/`y`/`yes` as approval and `n`/`no` as refusal; invalid input or a failed read stops setup. All setup API requests have a five-second connection timeout and a thirty-second total timeout.
+
 On `mufi`, App Lab's bare `sudo arduino-passwd` call failed because sudo's search path omitted `/usr/local/bin`. This is a separate installed App Lab/CLI issue, not a consequence of resetting setup flags. Use the setup script to change the password without changing sudoers. Expiring the account alone does not fix command lookup; if it was already expired, use interactive `passwd` over USB/ADB to recover.
 
 If a command fails, the reset stops; earlier changes are not rolled back. Correct the error and rerun. Deleting Wi-Fi profiles cannot recover their saved passwords; have them available before confirming. The installed App CLI daemon must support `DELETE /v1/properties/{key}`.
@@ -34,11 +38,13 @@ If a command fails, the reset stops; earlier changes are not rolled back. Correc
 ## Hardware-free checks
 
 ```bash
-bash -n setup-arduino-board.sh reset-arduino-board.sh test-reset-arduino-board.sh
+shellcheck setup-arduino-board.sh reset-arduino-board.sh test-reset-arduino-board.sh test-board-scripts.sh
+bash -n setup-arduino-board.sh reset-arduino-board.sh test-reset-arduino-board.sh test-board-scripts.sh
 bash test-reset-arduino-board.sh
+bash test-board-scripts.sh
 ```
 
-These check Wi-Fi profile selection, property-delete responses/errors, confirmation defaults, and non-interactive rejection. They do not change board settings or make real HTTP requests.
+These check Wi-Fi profile selection, property-delete responses/errors, supported-board checks, password rejection/handoff, Network Mode confirmation (including invalid input/EOF), non-interactive rejection, and reset cancellation/confirmed mutation order. The control-flow tests use disposable script copies with device-tree fixtures and the TTY check bypassed; console rejection is checked against the original scripts. Input and board commands are mocked. They do not change board settings or make real HTTP requests.
 
 ## Board smoke-test results
 
