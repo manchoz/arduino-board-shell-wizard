@@ -53,7 +53,7 @@ exec 3<&-
 unset line payload
 for key in hostname keyboard network_mode; do [[ -v "request[$key]" ]] || reject 'Missing required request key.'; done
 validate_hostname "${request[hostname]}" "$operation" || reject 'Invalid hostname.'
-[[ "${request[keyboard]}" =~ ^[A-Za-z0-9_-]*$ ]] || reject 'Invalid keyboard layout code.'
+validate_keyboard "${request[keyboard]}" || reject 'Invalid keyboard layout code.'
 
 if [[ "$operation" == setup ]]; then
   for key in wifi linux_password; do [[ -v "request[$key]" ]] || reject 'Missing required setup choice.'; done

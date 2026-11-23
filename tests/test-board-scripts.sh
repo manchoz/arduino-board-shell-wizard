@@ -40,8 +40,13 @@ read() {
   fi
   local variable="${*: -1}" value=''
   case "$variable" in
-    board_name) [[ "$scenario" != reset* ]] || value='test-board' ;;
-    keyboard_layout) [[ "$scenario" != reset* ]] || value='us' ;;
+    board_name)
+      [[ "$scenario" != reset* ]] || value='test-board'
+      [[ "$scenario" != reset-hostname ]] || value='bad name'
+      [[ "$scenario" != reset-eof ]] || return 1 ;;
+    keyboard_layout)
+      [[ "$scenario" != reset* ]] || value='us'
+      [[ "$scenario" != *-keyboard ]] || value="$TEST_KEYBOARD" ;;
     confirmation) value="$TEST_CONFIRMATION" ;;
     answer)
       value=n
@@ -68,8 +73,16 @@ arduino-app-cli() {
   case "$*" in
     version) echo 'test version' ;;
     'system keyboard') echo 'current layout: us' ;;
-    'system network-mode status') echo disabled ;;
-    'config get --format json') printf '{\n"data": "%s",\n"apps": "%s"\n}\n' "$work" "$work" ;;
+    'system network-mode status')
+      if [[ "$scenario" == password-enabled ]]; then echo enabled; else echo disabled; fi ;;
+    'system check')
+      [[ "$scenario" != password-enabled || ! -v network_password ]] || return 7 ;;
+    'config get --format json')
+      if [[ "$scenario" == compact-json ]]; then
+        printf '{"data":"%s","apps":"%s"}\n' "$work" "$work"
+      else
+        printf '{\n"data": "%s",\n"apps": "%s"\n}\n' "$work" "$work"
+      fi ;;
   esac
 }
 nmcli() {
@@ -79,7 +92,7 @@ nmcli() {
   fi
 }
 chage() {
-  if [[ "$scenario" == password ]]; then
+  if [[ "$scenario" == password* ]]; then
     echo 'Last password change : password must be changed'
   else
     echo 'Last password change : Jan 01, 2026'
@@ -205,4 +218,38 @@ printf '%s\n' \
   'sudo -n nmcli connection delete uuid wifi-uuid' \
   'sudo -n nmcli connection delete uuid other-wifi-uuid' >"$work/expected"
 diff -u "$work/expected" "$work/actual" || fail 'Reset mutation sequence changed'
+
+# Check each consistency regression independently so all failures are visible.
+regression_failed=false
+TEST_ANSWER=n
+export TEST_KEYBOARD
+for scenario in setup-keyboard reset-keyboard; do
+  (
+    for TEST_KEYBOARD in 'us intl' 'us;de' 'us/de'; do
+      if run "${scenario%%-*}"; then fail 'Invalid wizard keyboard accepted'; fi
+      grep -q 'Invalid keyboard layout code' "$work/output" || fail 'Keyboard rejection diagnostic missing'
+      ! grep -Eq '^sudo |--request DELETE|^cli system keyboard ' "$work/commands" || fail 'Invalid keyboard reached mutations'
+    done
+  ) || regression_failed=true
+done
+for scenario in reset-hostname reset-eof; do
+  (
+    if run reset; then fail 'Invalid/failed reset input accepted'; fi
+    ! grep -q 'some settings may already have changed' "$work/output" || fail 'Reset warned about mutations before confirmation'
+    ! grep -Eq '^sudo |--request DELETE|^cli system (set-name|keyboard )' "$work/commands" || fail 'Reset mutated before confirmation'
+  ) || regression_failed=true
+done
+scenario='password-enabled'
+(
+  TEST_BAD_PASSWORD=short
+  run setup || fail 'Linux password copy remained when Network Mode was already enabled'
+  grep -q '^sudo /usr/local/bin/arduino-passwd$' "$work/commands" || fail 'Password change was skipped'
+  ! grep -Eq '^sudo (-k )?-S ' "$work/commands" || fail 'Already enabled Network Mode was changed'
+) || regression_failed=true
+scenario=compact-json
+(
+  TEST_ANSWER=n
+  run setup || fail 'Compact CLI configuration JSON rejected'
+) || regression_failed=true
+[[ "$regression_failed" == false ]] || fail 'Board consistency regressions failed'
 printf '%s\n' 'Board script control-flow checks passed.'

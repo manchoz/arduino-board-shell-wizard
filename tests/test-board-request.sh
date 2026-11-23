@@ -18,7 +18,12 @@ arduino-app-cli() {
   [[ "$*" != "${FAIL_COMMAND:-none}" ]] || return 9
   case "$*" in
     'system network-mode status') echo disabled ;;
-    'config get --format json') printf '{\n"data": "%s",\n"apps": "%s"\n}\n' "$work" "$work" ;;
+    'config get --format json')
+      if [[ "${COMPACT_CONFIG:-false}" == true ]]; then
+        printf '{"data":"%s","apps":"%s"}\n' "$work" "$work"
+      else
+        printf '{\n"data": "%s",\n"apps": "%s"\n}\n' "$work" "$work"
+      fi ;;
   esac
 }
 chage() { echo "Last password change : ${PASSWORD_STATE:-Jan 01, 2026}"; }
@@ -100,6 +105,17 @@ for input in "$base"$'hostname=again\n' "$base"$'unexpected=1\n' "${base/network
   no_changes
   grep -q '"stage":"validate"' "$work/output" || fail 'Validation stage missing'
 done
+for operation in setup reset; do
+  for keyboard in 'us intl' 'us;de' 'us/de'; do
+    input=${base/keyboard=/keyboard=$keyboard}
+    code=0
+    run || code=$?
+    [[ "$code" == 2 && ! -s "$work/commands" ]] || fail 'Invalid keyboard reached board commands'
+    grep -q 'Invalid keyboard layout code' "$work/error" || fail 'Keyboard rejection diagnostic missing'
+    grep -q '"stage":"validate"' "$work/output" || fail 'Keyboard rejection stage missing'
+  done
+done
+unset operation
 input=$base
 printf '%s\0' "$input" >"$work/nul-input"
 if bash "$work/board-request.sh" setup <"$work/nul-input" >"$work/output" 2>"$work/error"; then fail 'NUL accepted'; fi
@@ -155,4 +171,10 @@ unset FAIL_SUDO
 input=${input/current_password=valid-pass-8/current_password=}
 if run; then fail 'Reset without sudo authorization accepted'; fi
 no_changes
+unset operation
+input=$base
+export COMPACT_CONFIG=true
+run || fail 'Compact CLI JSON rejected by unattended verification'
+grep -q '"verify"' "$work/output" || fail 'Compact CLI JSON was not verified'
+unset COMPACT_CONFIG
 printf '%s\n' 'Unattended board checks passed.'

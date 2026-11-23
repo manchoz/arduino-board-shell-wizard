@@ -12,7 +12,6 @@ ask_yes_no() {
 }
 
 main() {
-  trap 'echo "Reset stopped after an error; some settings may already have changed. Fix the error and rerun." >&2' ERR
   local cli CLI connections wifi_uuids reset_wifi=false reset_network=false
   local board_name keyboard_layout confirmation property
 
@@ -45,6 +44,7 @@ main() {
   validate_hostname "$board_name" reset
   "$cli" system keyboard
   read -r -p 'Replacement keyboard layout code (blank to keep current): ' keyboard_layout
+  validate_keyboard "$keyboard_layout"
   if ask_yes_no 'Disable Network Mode (SSH + Bonjour/Avahi)?'; then
     reset_network=true
   fi
@@ -62,6 +62,7 @@ main() {
     echo 'Cancelled; nothing changed.'
     return 0
   fi
+  trap 'echo "Reset stopped after an error; some settings may already have changed. Fix the error and rerun." >&2' ERR
 
   # Authenticate before any changes that need root or could disconnect access.
   if [[ "$reset_wifi" == true || "$reset_network" == true || -n "$board_name$keyboard_layout" ]]; then

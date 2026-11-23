@@ -21,6 +21,12 @@ validate_hostname() {
   fi
 }
 
+validate_keyboard() {
+  [[ "$1" =~ ^[A-Za-z0-9_-]*$ ]] || {
+    echo 'Invalid keyboard layout code.' >&2; return 1;
+  }
+}
+
 configure_hostname() { [[ -z "$1" ]] || "$CLI" system set-name "$1"; }
 configure_keyboard() { [[ -z "$1" ]] || "$CLI" system keyboard "$1"; }
 
@@ -138,8 +144,8 @@ verify_configuration() {
   local config_json data_dir apps_dir dir
   "$CLI" system check || return
   config_json="$("$CLI" config get --format json)" || return
-  data_dir="$(sed -n 's/^[[:space:]]*"data":[[:space:]]*"\([^"]*\)".*/\1/p' <<<"$config_json")"
-  apps_dir="$(sed -n 's/^[[:space:]]*"apps":[[:space:]]*"\([^"]*\)".*/\1/p' <<<"$config_json")"
+  data_dir="$(grep -o '"data":[[:space:]]*"[^"]*"' <<<"$config_json" | cut -d '"' -f4)" || data_dir=''
+  apps_dir="$(grep -o '"apps":[[:space:]]*"[^"]*"' <<<"$config_json" | cut -d '"' -f4)" || apps_dir=''
   for dir in "$data_dir" "$apps_dir"; do
     [[ -n "$dir" && -d "$dir" && -w "$dir" ]] || {
       echo "Arduino App CLI config directory is missing or not writable: ${dir:-<unset>}" >&2; return 1;

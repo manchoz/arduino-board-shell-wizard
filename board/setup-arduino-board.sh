@@ -71,6 +71,7 @@ set_setup_done setup-board-name
 keyboard_state="$("$CLI" system keyboard)"
 current_layout="$(awk -F': ' '$1 == "current layout" {print $2}' <<<"$keyboard_state")"
 read -r -p "Keyboard layout code (blank to keep ${current_layout:-current}): " keyboard_layout
+validate_keyboard "$keyboard_layout"
 configure_keyboard "$keyboard_layout"
 set_setup_done setup-keyboard-name
 
@@ -165,6 +166,7 @@ if [[ "$network_mode" != 'enabled' ]]; then
 else
   echo 'App Lab Network Mode is already enabled.'
 fi
+unset network_password
 
 printf '\n%s\n' 'Verifying App Lab prerequisites and CLI configuration...'
 verify_configuration

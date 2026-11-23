@@ -144,7 +144,7 @@ Keep `board-common.sh` beside the script when using manual transfer or a local c
 | Step | What to enter | Result |
 | --- | --- | --- |
 | Hostname | Blank keeps the current name; otherwise enter a new name. | Marks the hostname step complete. A new name must be 1–63 letters, digits, or hyphens and start/end with a letter or digit. Names that become `unoq` after removing hyphens and ignoring case are rejected; blank still keeps a factory `uno-q` name. |
-| Keyboard | Blank keeps the current layout; otherwise enter a layout code such as `us` or `de`. | Marks the keyboard step complete. |
+| Keyboard | Blank keeps the current layout; otherwise enter a layout code such as `us` or `de`, using only letters, digits, underscores, or hyphens. | Marks the keyboard step complete. |
 | Wi-Fi | Answer `y`/`yes` to connect, or blank/`n`/`no` to skip. | `nmcli` prompts for the SSID's password. A successful connection made by the script marks the Wi-Fi step complete. |
 | Linux password | On first use, enter and confirm a new password. On later runs, answer `n`/`no` to keep it. | Sets or preserves the `arduino` account password and marks credentials complete. |
 | Network Mode | If no password was changed and Network Mode is disabled, choose whether to enable it; blank means yes. | Enables SSH and Bonjour/Avahi if approved. Setting/changing the Linux password enables Network Mode automatically when it is disabled. Already enabled services are left enabled. |
@@ -191,6 +191,8 @@ network_mode=keep
 | `current_password` | Optional sudo authentication; required when enabling disabled Network Mode while keeping the Linux password. | Required for privileged changes unless sudo is already authorized. |
 | `delete_wifi` | Not accepted. | Required: `no` or `yes` (all saved Wi-Fi profiles). |
 | `confirm` | Not accepted. | Required: exactly `RESET`. |
+
+Nonempty keyboard codes use only letters, digits, underscores, or hyphens, matching the interactive wizards.
 
 Supply secrets through the private request file, not shell arguments, shell history, environment variables, or terminal transcripts. The host forwards its bytes through ADB stdin without copying the request to the board. The worker suppresses command output and returns no credentials. Create requests outside this repository; retain/delete them according to your credential-storage policy.
 
