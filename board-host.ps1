@@ -134,12 +134,18 @@ try {
     $candidate = Checked-Adb -AdbArguments @('-s', $Serial, 'shell', 'mktemp', '-d', '/tmp/arduino-board-tools.XXXXXX')
     if ($candidate -notmatch '^/tmp/arduino-board-tools\.[A-Za-z0-9]+$') { throw 'Unexpected board temporary directory.' }
     $boardTemp = $candidate
+    $localFiles = @(); $remoteFiles = @(); $hashes = @()
     foreach ($name in @('board-common.sh', 'board-request.sh', 'setup-arduino-board.sh', 'reset-arduino-board.sh')) {
         $localFile = Join-Path (Join-Path $PSScriptRoot 'board') $name
-        $hash = (Get-FileHash -LiteralPath $localFile -Algorithm SHA256).Hash.ToLowerInvariant()
-        [void](Checked-Adb -AdbArguments @('-s', $Serial, 'push', $localFile, "$boardTemp/$name"))
-        $remoteHash = (Checked-Adb -AdbArguments @('-s', $Serial, 'shell', 'sha256sum', "$boardTemp/$name")) -split '\s+', 2
-        if ($remoteHash[0] -ne $hash) { throw 'Uploaded script hash mismatch.' }
+        $localFiles += $localFile
+        $remoteFiles += "$boardTemp/$name"
+        $hashes += (Get-FileHash -LiteralPath $localFile -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+    [void](Checked-Adb -AdbArguments (@('-s', $Serial, 'push') + $localFiles + @("$boardTemp/")))
+    $remoteHashes = (Checked-Adb -AdbArguments (@('-s', $Serial, 'shell', 'sha256sum') + $remoteFiles)) -split '\r?\n'
+    if ($remoteHashes.Count -ne $remoteFiles.Count) { throw 'Unexpected uploaded script hash results.' }
+    for ($index = 0; $index -lt $remoteFiles.Count; $index++) {
+        if ($remoteHashes[$index] -cne "$($hashes[$index])  $($remoteFiles[$index])") { throw 'Uploaded script hash or path mismatch.' }
     }
     $stage = 'transport'
     if ($machine) {
@@ -182,8 +188,7 @@ try {
     $operationExitCode = $exitCode
     if ($boardTemp) {
         try {
-            [void](Checked-Adb -AdbArguments @('-s', $Serial, 'shell', 'rm', '-f', '--', "$boardTemp/board-common.sh", "$boardTemp/board-request.sh", "$boardTemp/setup-arduino-board.sh", "$boardTemp/reset-arduino-board.sh"))
-            [void](Checked-Adb -AdbArguments @('-s', $Serial, 'shell', 'rmdir', '--', $boardTemp))
+            [void](Checked-Adb -AdbArguments @('-s', $Serial, 'shell', "rm -f -- $boardTemp/board-common.sh $boardTemp/board-request.sh $boardTemp/setup-arduino-board.sh $boardTemp/reset-arduino-board.sh && rmdir -- $boardTemp"))
         } catch { [Console]::Error.WriteLine("Cleanup failed; board temporary directory: $boardTemp. Configuration was not rolled back.") }
     }
     $exitCode = $operationExitCode

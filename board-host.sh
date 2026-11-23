@@ -85,8 +85,7 @@ cleanup() {
   code=$?
   trap - EXIT
   if [[ -n "$board_temp" ]]; then
-    if ! run_adb -s "$serial" shell rm -f -- "$board_temp/board-common.sh" "$board_temp/board-request.sh" "$board_temp/setup-arduino-board.sh" "$board_temp/reset-arduino-board.sh" </dev/null >/dev/null 2>&1 ||
-       ! run_adb -s "$serial" shell rmdir -- "$board_temp" </dev/null >/dev/null 2>&1; then
+    if ! run_adb -s "$serial" shell "rm -f -- $board_temp/board-common.sh $board_temp/board-request.sh $board_temp/setup-arduino-board.sh $board_temp/reset-arduino-board.sh && rmdir -- $board_temp" </dev/null >/dev/null 2>&1; then
       echo "Cleanup failed; board temporary directory: $board_temp. Configuration was not rolled back." >&2
     fi
   fi
@@ -116,6 +115,7 @@ stage=upload
 board_temp=$(run_adb -s "$serial" shell mktemp -d /tmp/arduino-board-tools.XXXXXX </dev/null) || failure 'Could not create a board temporary directory.'
 board_temp="${board_temp%$'\r'}"
 [[ "$board_temp" =~ ^/tmp/arduino-board-tools\.[A-Za-z0-9]+$ ]] || { board_temp=''; failure 'Unexpected board temporary directory.'; }
+local_files=() remote_files=() hashes=()
 for name in board-common.sh board-request.sh setup-arduino-board.sh reset-arduino-board.sh; do
   [[ -f "$root/board/$name" ]] || failure 'A board script is missing.'
   if command -v sha256sum >/dev/null; then
@@ -124,10 +124,19 @@ for name in board-common.sh board-request.sh setup-arduino-board.sh reset-arduin
     hash=$(shasum -a 256 "$root/board/$name") || failure 'SHA-256 tooling is missing.'
   fi
   hash="${hash%% *}"
-  run_adb -s "$serial" push "$root/board/$name" "$board_temp/$name" </dev/null >/dev/null || failure 'Board script upload failed.'
-  remote_hash=$(run_adb -s "$serial" shell sha256sum "$board_temp/$name" </dev/null) || failure 'Could not verify an uploaded script.'
-  [[ "${remote_hash%% *}" == "$hash" ]] || failure 'Uploaded script hash mismatch.'
+  local_files+=("$root/board/$name")
+  remote_files+=("$board_temp/$name")
+  hashes+=("$hash")
 done
+run_adb -s "$serial" push "${local_files[@]}" "$board_temp/" </dev/null >/dev/null || failure 'Board script upload failed.'
+remote_hashes=$(run_adb -s "$serial" shell sha256sum "${remote_files[@]}" </dev/null) || failure 'Could not verify uploaded scripts.'
+index=0
+while IFS= read -r remote_hash; do
+  (( index < ${#remote_files[@]} )) || failure 'Unexpected uploaded script hash results.'
+  [[ "${remote_hash%$'\r'}" == "${hashes[$index]}  ${remote_files[$index]}" ]] || failure 'Uploaded script hash or path mismatch.'
+  index=$((index + 1))
+done <<<"$remote_hashes"
+(( index == ${#remote_files[@]} )) || failure 'Missing uploaded script hash results.'
 
 stage=transport
 if [[ "$machine" == true ]]; then

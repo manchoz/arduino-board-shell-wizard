@@ -37,12 +37,25 @@ class MockAdb {
         if (args[0] == "devices") { Console.WriteLine("List of devices attached\nSERIAL device"); if (scenario == "multiple") Console.WriteLine("SECOND device"); return 0; }
         if (args[0] != "-s" || args[1] != "SERIAL") return 77;
         if (args[2] == "get-state") { Console.WriteLine("device"); return 0; }
-        if (args[2] == "push") { if (scenario == "upload") return 9; File.Copy(args[3], Path.Combine(root, Path.GetFileName(args[4])), true); return 0; }
+        if (args[2] == "push") {
+            if (scenario == "upload") return 9;
+            string destination = args[args.Length - 1];
+            for (int i = 3; i < args.Length - 1; i++) File.Copy(args[i], Path.Combine(root, Path.GetFileName(destination.EndsWith("/") ? args[i] : destination)), true);
+            return 0;
+        }
         if (args[2] != "shell") return 78;
         if (args[3].StartsWith("tr ")) { Console.WriteLine(scenario == "unsupported" ? "arduino,imola-evil" : "arduino,imola"); return 0; }
         if (args[3] == "mktemp") { Console.WriteLine(scenario == "badtemp" ? "/tmp/untrusted;command" : "/tmp/arduino-board-tools.TEST123"); return 0; }
         if (args[3] == "sha256sum") {
-            using (var hash = SHA256.Create()) { var bytes = hash.ComputeHash(File.ReadAllBytes(Path.Combine(root, Path.GetFileName(args[4])))); Console.WriteLine((scenario == "hash" ? "broken" : BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant()) + "  " + args[4]); }
+            for (int i = 4; i < args.Length; i++) {
+                if (scenario == "hashmissing" && i == args.Length - 1) continue;
+                string path = scenario == "hashduplicate" && i == args.Length - 1 ? args[4] : args[i];
+                using (var hash = SHA256.Create()) {
+                    var bytes = hash.ComputeHash(File.ReadAllBytes(Path.Combine(root, Path.GetFileName(path))));
+                    Console.WriteLine((scenario == "hash" ? "broken" : BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant()) + "  " + path + (scenario == "hashpath" ? ".wrong" : "") + (scenario == "hashmalformed" ? " ignored" : ""));
+                }
+            }
+            if (scenario == "hashextra") Console.WriteLine(new string('0', 64) + "  /tmp/arduino-board-tools.TEST123/extra.sh");
             return 0;
         }
         if (args[3] == "hostname") { Console.WriteLine(scenario == "badhostname" ? "bad name" : (scenario == "hostnamehost" ? "host" : "test-board")); return 0; }
@@ -73,6 +86,10 @@ class MockAdb {
             return fail ? 3 : 0;
         }
         if (args[3] == "-tt") { Console.WriteLine("Interactive wizard"); return 4; }
+        if (args[3].StartsWith("rm -f -- ")) {
+            if (args.Length != 4 || args[3] != "rm -f -- /tmp/arduino-board-tools.TEST123/board-common.sh /tmp/arduino-board-tools.TEST123/board-request.sh /tmp/arduino-board-tools.TEST123/setup-arduino-board.sh /tmp/arduino-board-tools.TEST123/reset-arduino-board.sh && rmdir -- /tmp/arduino-board-tools.TEST123") return 81;
+            return scenario == "cleanup" ? 8 : 0;
+        }
         if (args[3] == "rm" || args[3] == "rmdir") return scenario == "cleanup" ? 8 : 0;
         return 79;
     }
@@ -109,10 +126,26 @@ class MockAdb {
         $ErrorActionPreference = 'Stop'
         return [pscustomobject]@{ Code = $LASTEXITCODE; Output = (Get-Content -LiteralPath $outputFile -Raw); Error = (Get-Content -LiteralPath $errorFile -Raw); Log = (Get-Content -LiteralPath (Join-Path $work 'log') -Raw) }
     }
+    $launchWatch = [Diagnostics.Stopwatch]::StartNew()
     $answer = Run-Launcher ''
+    $launchWatch.Stop()
+    Write-Output ('Mock successful PowerShell launch elapsed ({0}): {1:F3} s' -f $HostShell, $launchWatch.Elapsed.TotalSeconds)
     if ($answer.Code -ne 0) { throw ("PowerShell launch failed with code " + $answer.Code + ': ' + $answer.Log + (Get-Content -LiteralPath (Join-Path $work 'error') -Raw)) }
     if ([IO.File]::ReadAllText((Join-Path $work 'received')) -ne $inputText) { throw 'Request bytes changed.' }
     if ($answer.Log -match 'fixture-secret' -or $answer.Output -match 'fixture-secret' -or $answer.Error -match 'fixture-secret') { throw 'Secret leaked.' }
+    $regressionFailures = @()
+    $names = @('board-common.sh', 'board-request.sh', 'setup-arduino-board.sh', 'reset-arduino-board.sh')
+    $expectedPush = '-s SERIAL push ' + (($names | ForEach-Object { Join-Path $boardDir $_ }) -join ' ') + ' /tmp/arduino-board-tools.TEST123/'
+    if ([regex]::Matches($answer.Log, '(?m)^-s SERIAL push ').Count -ne 1 -or ($answer.Log -split "`n") -cnotcontains $expectedPush) { $regressionFailures += 'Payload upload was not one four-file push.' }
+    $expectedHashes = '-s SERIAL shell sha256sum ' + (($names | ForEach-Object { '/tmp/arduino-board-tools.TEST123/' + $_ }) -join ' ')
+    if ([regex]::Matches($answer.Log, '(?m)^-s SERIAL shell sha256sum ').Count -ne 1 -or ($answer.Log -split "`n") -cnotcontains $expectedHashes) { $regressionFailures += 'Payload hashes were not verified in one call.' }
+    $expectedCleanup = '-s SERIAL shell rm -f -- ' + (($names | ForEach-Object { '/tmp/arduino-board-tools.TEST123/' + $_ }) -join ' ') + ' && rmdir -- /tmp/arduino-board-tools.TEST123'
+    if ([regex]::Matches($answer.Log, '(?m)^-s SERIAL shell rm').Count -ne 1 -or $answer.Log -match 'shell rmdir' -or ($answer.Log -split "`n") -cnotcontains $expectedCleanup) { $regressionFailures += 'Cleanup was not one ordered shell command.' }
+    foreach ($scenario in @('hashpath', 'hashmissing', 'hashextra', 'hashduplicate', 'hashmalformed')) {
+        $answer = Run-Launcher $scenario
+        if ($answer.Code -eq 0 -or ($answer.Output | ConvertFrom-Json).stage -ne 'upload' -or $answer.Log -match 'shell -T') { $regressionFailures += "Invalid hash response accepted: $scenario" }
+    }
+    if ($regressionFailures.Count) { throw ($regressionFailures -join "`n") }
     $answer = Run-Launcher '' -EmptyRequest
     if ($answer.Code -ne 2 -or $answer.Log -or ($answer.Output | ConvertFrom-Json).stage -ne 'arguments') { throw 'Empty request path did not stop before ADB.' }
     foreach ($operation in @('Setup', 'Reset')) {
@@ -129,6 +162,7 @@ class MockAdb {
     foreach ($scenario in @('workerfail', 'cleanup')) {
         $answer = Run-Launcher $scenario
         if ($answer.Code -ne 3 -or ($answer.Output | ConvertFrom-Json).completed[0] -ne 'hostname') { throw 'Worker status or partial result was lost.' }
+        if ($scenario -eq 'cleanup' -and $answer.Error -notlike '*Cleanup failed*') { throw 'Cleanup warning missing.' }
     }
     [IO.File]::WriteAllText($inputFile, (New-Object string('x', 65536)), [Text.UTF8Encoding]::new($false))
     $answer = Run-Launcher 'earlyreject'

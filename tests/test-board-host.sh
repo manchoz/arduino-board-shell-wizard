@@ -27,7 +27,13 @@ case "$1" in
   get-state) echo device ;;
   push)
     [[ "${HOST_CASE:-}" != upload ]] || exit 9
-    cp "$2" "$HOST_TEST_WORK/board/${3##*/}" ;;
+    destination="${!#}"
+    shift
+    while (( $# > 1 )); do
+      if [[ "$destination" == */ ]]; then name="${1##*/}"; else name="${destination##*/}"; fi
+      cp "$1" "$HOST_TEST_WORK/board/$name"
+      shift
+    done ;;
   shell)
     shift
     case "$1" in
@@ -36,9 +42,23 @@ case "$1" in
       mktemp)
         if [[ "${HOST_CASE:-}" == badtemp ]]; then echo '/tmp/untrusted;command'; else echo /tmp/arduino-board-tools.TEST123; fi ;;
       sha256sum)
-        if [[ "${HOST_CASE:-}" == hash ]]; then echo broken
-        elif command -v sha256sum >/dev/null; then sha256sum "$HOST_TEST_WORK/board/${2##*/}"
-        else shasum -a 256 "$HOST_TEST_WORK/board/${2##*/}"; fi ;;
+        shift
+        first_path="$1"
+        for remote_path do
+          [[ "${HOST_CASE:-}" != hashmissing || "$remote_path" != "${!#}" ]] || continue
+          if command -v sha256sum >/dev/null; then hash=$(sha256sum "$HOST_TEST_WORK/board/${remote_path##*/}")
+          else hash=$(shasum -a 256 "$HOST_TEST_WORK/board/${remote_path##*/}"); fi
+          hash="${hash%% *}"
+          case "${HOST_CASE:-}" in
+            hash) hash=broken ;;
+            hashpath) remote_path+=.wrong ;;
+            hashduplicate) [[ "$remote_path" != "${!#}" ]] || remote_path="$first_path" ;;
+          esac
+          printf '%s  %s' "$hash" "$remote_path"
+          [[ "${HOST_CASE:-}" != hashmalformed ]] || printf ' ignored'
+          printf '\n'
+        done
+        [[ "${HOST_CASE:-}" != hashextra ]] || printf '%064d  /tmp/arduino-board-tools.TEST123/extra.sh\n' 0 ;;
       hostname) if [[ "${HOST_CASE:-}" == badhostname ]]; then echo 'bad name'; else echo test-board; fi ;;
       arduino-app-cli) if [[ "${HOST_CASE:-}" == sshdisabled ]]; then echo disabled; else echo enabled; fi ;;
       -T)
@@ -66,6 +86,9 @@ case "$1" in
         fi
         echo '{"version":1,"operation":"setup","status":"ok","stage":"complete","completed":["hostname"],"skipped":["network"]}' ;;
       -tt) echo 'Interactive wizard'; exit 4 ;;
+      'rm -f -- '*)
+        [[ $# == 1 && "$1" == 'rm -f -- /tmp/arduino-board-tools.TEST123/board-common.sh /tmp/arduino-board-tools.TEST123/board-request.sh /tmp/arduino-board-tools.TEST123/setup-arduino-board.sh /tmp/arduino-board-tools.TEST123/reset-arduino-board.sh && rmdir -- /tmp/arduino-board-tools.TEST123' ]] || exit 80
+        [[ "${HOST_CASE:-}" != cleanup ]] ;;
       rm|rmdir) [[ "${HOST_CASE:-}" != cleanup ]] ;;
       *) exit 78 ;;
     esac ;;
@@ -81,11 +104,34 @@ run() {
   : >"$work/log"
   (cd "$work/another directory"; bash "$work/repo with spaces/board-host.sh" "$@") >"$work/output" 2>"$work/error"
 }
-run setup --serial SERIAL --request-file "$work/input" || fail 'Host launch failed'
+TIMEFORMAT='Mock successful Bash launch elapsed: %3R s'
+time run setup --serial SERIAL --request-file "$work/input" || fail 'Host launch failed'
+unset TIMEFORMAT
 cmp "$work/input" "$work/input-received" || fail 'Request bytes changed'
 ! grep -q 'fixture-' "$work/log" "$work/output" "$work/error" || fail 'Request secret leaked'
-[[ $(grep -c 'shell sha256sum' "$work/log") == 4 ]] || fail 'Uploaded scripts were not verified'
-grep -q 'shell rmdir' "$work/log" || fail 'Cleanup missing'
+regression_failed=false
+expected_push="-s SERIAL push $work/repo with spaces/board/board-common.sh $work/repo with spaces/board/board-request.sh $work/repo with spaces/board/setup-arduino-board.sh $work/repo with spaces/board/reset-arduino-board.sh /tmp/arduino-board-tools.TEST123/"
+if [[ $(grep -c ' SERIAL push ' "$work/log") != 1 ]] || ! grep -Fxq -- "$expected_push" "$work/log"; then
+  echo 'FAIL: Payload upload was not one four-file push' >&2; regression_failed=true
+fi
+expected_hashes='-s SERIAL shell sha256sum /tmp/arduino-board-tools.TEST123/board-common.sh /tmp/arduino-board-tools.TEST123/board-request.sh /tmp/arduino-board-tools.TEST123/setup-arduino-board.sh /tmp/arduino-board-tools.TEST123/reset-arduino-board.sh'
+if [[ $(grep -c 'shell sha256sum' "$work/log") != 1 ]] || ! grep -Fxq -- "$expected_hashes" "$work/log"; then
+  echo 'FAIL: Payload hashes were not verified in one call' >&2; regression_failed=true
+fi
+expected_cleanup='-s SERIAL shell rm -f -- /tmp/arduino-board-tools.TEST123/board-common.sh /tmp/arduino-board-tools.TEST123/board-request.sh /tmp/arduino-board-tools.TEST123/setup-arduino-board.sh /tmp/arduino-board-tools.TEST123/reset-arduino-board.sh && rmdir -- /tmp/arduino-board-tools.TEST123'
+if [[ $(grep -c 'shell rm' "$work/log") != 1 || $(grep -c 'shell rmdir' "$work/log") != 0 ]] || ! grep -Fxq -- "$expected_cleanup" "$work/log"; then
+  echo 'FAIL: Cleanup was not one ordered shell command' >&2; regression_failed=true
+fi
+for HOST_CASE in hashpath hashmissing hashextra hashduplicate hashmalformed; do
+  export HOST_CASE
+  code=0
+  run setup --serial SERIAL --request-file "$work/input" || code=$?
+  if (( code == 0 )) || ! grep -q '"stage":"upload"' "$work/output" || grep -q 'shell -T' "$work/log"; then
+    echo "FAIL: Invalid hash response accepted: $HOST_CASE" >&2; regression_failed=true
+  fi
+done
+unset HOST_CASE
+[[ "$regression_failed" == false ]] || fail 'Batched transfer regressions failed'
 code=0
 run setup --serial SERIAL --request-file '' || code=$?
 [[ "$code" == 2 && ! -s "$work/log" ]] || fail 'Empty request path reached ADB'
@@ -112,6 +158,9 @@ for HOST_CASE in workerfail cleanup interrupted; do
   [[ "$HOST_CASE" != interrupted ]] || expected=143
   [[ "$code" == "$expected" ]] || fail 'Worker exit status was masked'
   grep -q '"completed":\["hostname"\]' "$work/output" || fail 'Worker partial result was lost'
+  if [[ "$HOST_CASE" == cleanup ]]; then
+    grep -q 'Cleanup failed' "$work/error" || fail 'Cleanup warning missing'
+  fi
 done
 unset HOST_CASE
 chmod 644 "$work/input"
