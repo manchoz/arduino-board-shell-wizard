@@ -211,7 +211,8 @@ class MockAdb {
     $badKey = Join-Path $work 'bad.pub'
     [IO.File]::WriteAllText($badKey, "ssh-ed25519 invalid`n")
     $answer = Run-Launcher '' -Key $badKey
-    if ($answer.Code -eq 0 -or $answer.Log) { throw 'Malformed SSH key reached ADB.' }
+    if ($answer.Code -ne 2 -or $answer.Log -or ($answer.Output | ConvertFrom-Json).stage -ne 'arguments') { throw 'Malformed SSH key did not fail at arguments.' }
+    if ($answer.Error -notlike '*Invalid SSH public key.*') { throw 'Invalid SSH public key diagnostic was lost.' }
     $answer = Run-Launcher '' -Address 192.0.2.1
     if ($answer.Code -eq 0 -or $answer.Log) { throw 'SSH address without key reached ADB.' }
     $answer = Run-Launcher '' -Operation reset -Key ($key + '.pub')

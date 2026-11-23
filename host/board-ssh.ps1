@@ -13,7 +13,11 @@ function Read-SshPublicKey {
     if ($key.EndsWith(([char]13).ToString())) { $key = $key.Substring(0, $key.Length - 1) }
     if ($key -cnotmatch '\A([A-Za-z0-9@._+-]+)[ \t]+([A-Za-z0-9+/]+={0,3})(?:[ \t]+[^\r\n]*)?\z') { throw 'Choose a single OpenSSH public key, without authorized_keys options.' }
     $script:sshPublicKey = $Matches[1] + ' ' + $Matches[2]
-    & $keygen -l -f $file.FullName >$null 2>$null
+    $savedErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $keygen -l -f $file.FullName >$null 2>$null
+    } finally { $ErrorActionPreference = $savedErrorActionPreference }
     if ($LASTEXITCODE -ne 0) { throw 'Invalid SSH public key.' }
     $script:sshIdentity = $file.FullName
     if ($file.FullName.EndsWith('.pub') -and (Test-Path -LiteralPath $file.FullName.Substring(0, $file.FullName.Length - 4) -PathType Leaf)) { $script:sshIdentity = $file.FullName.Substring(0, $file.FullName.Length - 4) }
