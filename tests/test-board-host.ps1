@@ -4,7 +4,9 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $work = Join-Path ([IO.Path]::GetTempPath()) ('board-host-test-' + [guid]::NewGuid().ToString('N'))
 $savedPath = $env:PATH
+$savedInputEncoding = [Console]::InputEncoding
 try {
+    [Console]::InputEncoding = [Text.Encoding]::UTF8
     [void](New-Item -ItemType Directory -Path $work)
     $acl = Get-Acl -LiteralPath $work
     $acl.SetAccessRuleProtection($true, $false)
@@ -225,6 +227,7 @@ class MockAdb {
     if (@(Get-ChildItem -LiteralPath $sshDir -Filter '*.arduino.*').Count) { throw 'SSH temporary files were left behind.' }
     Write-Output "PowerShell host checks passed ($HostShell)."
 } finally {
+    [Console]::InputEncoding = $savedInputEncoding
     $env:PATH = $savedPath
     Remove-Item Env:BOARD_HOST_TEST_DIR, Env:BOARD_HOST_TEST_CASE -ErrorAction SilentlyContinue
     $resolved = [IO.Path]::GetFullPath($work)

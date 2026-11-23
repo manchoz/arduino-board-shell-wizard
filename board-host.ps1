@@ -40,7 +40,25 @@ function Invoke-Adb {
     $inputStream = $null
     $started = $false
     try {
-        [void]$process.Start()
+        $savedInputEncoding = $null
+        try {
+            if ($start.PSObject.Properties['StandardInputEncoding']) {
+                $start.StandardInputEncoding = [Text.UTF8Encoding]::new($false)
+            } else {
+                # .NET Framework creates the stdin writer from the console input encoding.
+                try {
+                    $savedInputEncoding = [Console]::InputEncoding
+                    [Console]::InputEncoding = [Text.UTF8Encoding]::new($false)
+                } catch {
+                    if ($InputFile -and $savedInputEncoding -and $savedInputEncoding.GetPreamble().Length -gt 0) {
+                        throw 'Cannot configure BOM-free ADB stdin encoding.'
+                    }
+                }
+            }
+            [void]$process.Start()
+        } finally {
+            if ($savedInputEncoding) { try { [Console]::InputEncoding = $savedInputEncoding } catch {} }
+        }
         $started = $true
         $watch = [Diagnostics.Stopwatch]::StartNew()
         $outputTask = $process.StandardOutput.ReadToEndAsync()
