@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Exercise script control flow with board/input fixtures and harmless command mocks.
 set -Eeuo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")"
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 export work
@@ -10,8 +10,9 @@ mkdir "$work/device-tree"
 # Non-interactive rejection is checked against the unmodified scripts separately.
 for name in setup reset; do
   sed -e "s|/proc/device-tree|$work/device-tree|g" -e 's/\[\[ ! -t 0 \]\]/false/' \
-    "$name-arduino-board.sh" >"$work/$name.sh"
+    "board/$name-arduino-board.sh" >"$work/$name.sh"
 done
+sed "s|/proc/device-tree|$work/device-tree|g" board/board-common.sh >"$work/board-common.sh"
 printf 'Test board\0' >"$work/device-tree/model"
 unset SSH_CONNECTION SSH_CLIENT SSH_TTY
 
@@ -99,7 +100,7 @@ run() {
 scenario=setup
 TEST_ANSWER=n
 : >"$work/commands"
-if bash ./setup-arduino-board.sh </dev/null >"$work/output" 2>&1; then
+if bash ./board/setup-arduino-board.sh </dev/null >"$work/output" 2>&1; then
   fail 'Non-interactive setup accepted'
 fi
 grep -q 'Run this script from an interactive terminal' "$work/output" || fail 'Missing setup console warning'
@@ -153,10 +154,10 @@ printf '%s\n' \
   'curl --silent --show-error --connect-timeout 5 --max-time 30 --output /dev/null --write-out %{http_code} --request DELETE http://127.0.0.1:8800/v1/properties/setup-keyboard-name' \
   'curl --silent --show-error --connect-timeout 5 --max-time 30 --output /dev/null --write-out %{http_code} --request DELETE http://127.0.0.1:8800/v1/properties/setup-network' \
   'curl --silent --show-error --connect-timeout 5 --max-time 30 --output /dev/null --write-out %{http_code} --request DELETE http://127.0.0.1:8800/v1/properties/setup-credentials' \
-  'sudo systemctl mask ssh.service avahi-daemon.service' \
-  'sudo systemctl disable --now avahi-daemon.service' \
-  'sudo systemctl disable --now ssh.service' \
-  'sudo nmcli connection delete uuid wifi-uuid' \
-  'sudo nmcli connection delete uuid other-wifi-uuid' >"$work/expected"
+  'sudo -n systemctl mask ssh.service avahi-daemon.service' \
+  'sudo -n systemctl disable --now avahi-daemon.service' \
+  'sudo -n systemctl disable --now ssh.service' \
+  'sudo -n nmcli connection delete uuid wifi-uuid' \
+  'sudo -n nmcli connection delete uuid other-wifi-uuid' >"$work/expected"
 diff -u "$work/expected" "$work/actual" || fail 'Reset mutation sequence changed'
 printf '%s\n' 'Board script control-flow checks passed.'

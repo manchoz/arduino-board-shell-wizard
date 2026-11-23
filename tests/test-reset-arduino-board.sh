@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Hardware-free checks; all HTTP requests are mocked.
 set -Eeuo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")"
-source ./reset-arduino-board.sh
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+source ./board/reset-arduino-board.sh
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
@@ -41,7 +41,7 @@ if ask_yes_no 'test' <<<'' >/dev/null; then fail 'Blank should decline'; fi
 if ask_yes_no 'test' <<<'no' >/dev/null; then fail 'no should decline'; fi
 
 # This path must exit before checking board tools or changing anything.
-if output="$(bash ./reset-arduino-board.sh </dev/null 2>&1)"; then
+if output="$(bash ./board/reset-arduino-board.sh </dev/null 2>&1)"; then
   fail 'Non-interactive execution should fail'
 fi
 [[ "$output" == *'Run from an interactive board console'* ]] || fail 'Missing console warning'
