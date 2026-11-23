@@ -89,13 +89,14 @@ connect_wifi() {
 }
 
 enable_network_mode() {
-  local commands='set -ex
+  local commands='exec </dev/null
+set -ex
 systemctl unmask ssh.service
 systemctl unmask avahi-daemon.service
 dpkg-reconfigure openssh-server
 systemctl enable --now avahi-daemon.service
 systemctl enable --now ssh.service'
-  printf '%s\n' "$1" | sudo -S -p '' sh -c "$commands"
+  printf '%s\n' "$1" | sudo -k -S -p '' sh -c "$commands"
 }
 
 set_setup_done() {

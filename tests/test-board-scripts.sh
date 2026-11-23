@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Exercise script control flow with board/input fixtures and harmless command mocks.
+# shellcheck disable=SC2032 # sudo is a test function that intercepts privileged commands.
 set -Eeuo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 work="$(mktemp -d)"
@@ -13,6 +14,16 @@ for name in setup reset; do
     "board/$name-arduino-board.sh" >"$work/$name.sh"
 done
 sed "s|/proc/device-tree|$work/device-tree|g" board/board-common.sh >"$work/board-common.sh"
+mkdir "$work/privileged"
+for mock_command in systemctl dpkg-reconfigure; do
+  cat >"$work/privileged/$mock_command" <<'MOCK'
+#!/usr/bin/env bash
+record() { printf '%s\n' "$*" >>"$work/commands"; }
+if IFS= builtin read -r value; then record "stdin-leak $value"; fi
+record "privileged ${0##*/} $*"
+MOCK
+  chmod +x "$work/privileged/$mock_command"
+done
 printf 'Test board\0' >"$work/device-tree/model"
 unset SSH_CONNECTION SSH_CLIENT SSH_TTY
 
@@ -81,7 +92,21 @@ curl() {
 }
 sudo() {
   record "sudo $*"
-  if [[ "$1" == /usr/local/bin/arduino-passwd || "$1" == -S ]]; then
+  if [[ "$*" == *' sh -c '* ]]; then
+    local password fresh=false
+    if [[ "$1" == -k ]]; then fresh=true; shift; fi
+    [[ $# == 6 && "$1" == -S && "$2" == -p && -z "$3" && "$4" == sh && "$5" == -c ]] || fail 'Unexpected Network Mode sudo arguments'
+    # Cached credentials leave stdin untouched unless -k forces authentication.
+    if [[ "$fresh" == true && "${TEST_SUDO_NOPASSWD:-false}" != true ]]; then
+      IFS= builtin read -r password || return 1
+      [[ "$password" == valid-pass-8 ]] || fail 'Wrong password sent to sudo/helper'
+      record "password $password"
+    fi
+    shift 3
+    PATH="$work/privileged:$PATH" "$@"
+    return
+  fi
+  if [[ "$1" == /usr/local/bin/arduino-passwd || "$1" == -S || ( "$1" == -k && "${2:-}" == -S ) ]]; then
     local password
     IFS= builtin read -r password
     [[ "$password" == valid-pass-8 ]] || fail 'Wrong password sent to sudo/helper'
@@ -97,6 +122,26 @@ run() {
   : >"$work/commands"
   bash "$work/$1.sh" </dev/null >"$work/output" 2>&1
 }
+# shellcheck source=../board/board-common.sh
+source "$work/board-common.sh"
+export TEST_SUDO_NOPASSWD
+for TEST_SUDO_NOPASSWD in false true; do
+  : >"$work/commands"
+  enable_network_mode 'valid-pass-8' >"$work/output" 2>&1 || fail 'Network Mode privileged commands failed'
+  ! grep -q '^stdin-leak ' "$work/commands" || fail 'Linux password leaked to a Network Mode command'
+  if [[ "$TEST_SUDO_NOPASSWD" == false ]]; then
+    grep -q '^password valid-pass-8$' "$work/commands" || fail 'Cached sudo credentials bypassed password authentication'
+  fi
+  grep '^privileged ' "$work/commands" >"$work/actual" || fail 'Network Mode commands did not run'
+  printf '%s\n' \
+    'privileged systemctl unmask ssh.service' \
+    'privileged systemctl unmask avahi-daemon.service' \
+    'privileged dpkg-reconfigure openssh-server' \
+    'privileged systemctl enable --now avahi-daemon.service' \
+    'privileged systemctl enable --now ssh.service' >"$work/expected"
+  diff -u "$work/expected" "$work/actual" || fail 'Network Mode command order changed'
+done
+unset TEST_SUDO_NOPASSWD
 scenario=setup
 TEST_ANSWER=n
 : >"$work/commands"
@@ -124,7 +169,7 @@ for TEST_ANSWER in '' y YES n No maybe EOF; do
     [[ "$TEST_ANSWER" == maybe || "$TEST_ANSWER" == EOF ]] || fail 'Valid confirmation rejected'
   fi
   if [[ "$TEST_ANSWER" == '' || "$TEST_ANSWER" == y || "$TEST_ANSWER" == YES ]]; then
-    grep -q '^sudo -S ' "$work/commands" || fail 'Approval did not enable Network Mode'
+    grep -Eq '^sudo (-k )?-S ' "$work/commands" || fail 'Approval did not enable Network Mode'
   elif grep -q '^sudo ' "$work/commands"; then
     fail 'Network Mode enabled without approval'
   fi
