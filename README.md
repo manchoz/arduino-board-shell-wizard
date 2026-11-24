@@ -24,6 +24,17 @@ bash ./board-host.sh reset
 
 With one ready ADB device, the launcher selects it automatically and checks that it is a supported board. It opens the wizard and cleans up uploaded scripts afterward. Before resetting, read the [reset precautions](#reset-setup).
 
+<details>
+<summary>Watch a hardware-free setup demo</summary>
+
+![Hardware-free first-use setup walkthrough](docs/media/setup-demo.gif)
+
+Simulated first-use setup; no hardware required.
+
+[Recording (.cast)](docs/media/setup-demo.cast)
+
+</details>
+
 #### Multiple connected devices
 
 Find the board's serial with `adb devices -l`, then add `-Serial YOUR_DEVICE_SERIAL` (PowerShell) or `--serial YOUR_DEVICE_SERIAL` (Bash) to the commands above. See [explicit-selection examples](docs/adb.md#multiple-connected-devices).
