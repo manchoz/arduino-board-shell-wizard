@@ -2,6 +2,8 @@
 
 Interactive setup and reset for **Arduino Uno Q / Ventuno Q boards running the official Linux image**, following the [App Lab setup flow](https://docs.arduino.cc/software/app-lab/configure/config/). Run the tool from your computer over USB/ADB.
 
+**Download:** Open the [latest release](https://github.com/manchoz/arduino-board-shell-wizard/releases/latest) and choose **Source code (zip)**. Extract the entire archive and run the commands below from its root. ADB is required; see the [ADB setup guide](docs/adb.md).
+
 ## Run the setup wizard over USB/ADB
 
 Connect the board over USB and run commands from the **repository root**. Keep `board/` and `host/` beside the launchers. ADB must be on your terminal's `PATH`; see the [ADB setup guide](docs/adb.md) if needed.
