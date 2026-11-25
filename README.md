@@ -77,9 +77,11 @@ Wi-Fi and Network Mode are separate: enabling SSH/Bonjour does not connect the b
 
 New Linux passwords need at least eight characters, must not contain `arduino` (case-insensitive) or backslashes, and must not start/end with whitespace. These rules do **not** apply to Wi-Fi passwords. See [password guidance](docs/usage.md#linux-password-rules).
 
-## Unattended use for agents
+## Private request files and agents
 
-Use a private request file and an explicit serial. The [unattended guide](docs/unattended.md) contains the complete request/result contract, protected-file examples, SSH options, and failure handling.
+For setup without prompts, use a private request file and an explicit serial. See [file templates, private storage, and launcher commands](docs/unattended.md#prepare-and-use-a-private-request-file); the guide also covers SSH options and failure handling.
+
+For natural-language provisioning in Codex or another compatible agent, install the [portable agent skill](docs/unattended.md#portable-agent-skill).
 
 ## Add or change Wi-Fi later
 

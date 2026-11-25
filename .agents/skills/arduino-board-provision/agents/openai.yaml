@@ -1,0 +1,3 @@
+interface:
+  display_name: "Arduino Q Board Provisioning"
+  short_description: "Provision Arduino Q boards over USB/ADB"

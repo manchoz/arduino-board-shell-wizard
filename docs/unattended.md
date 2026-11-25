@@ -6,6 +6,30 @@ Run host commands below from the **repository root**, with ADB on your terminal'
 
 Use an explicit device serial and a private request file for unattended setup or reset, even when only one board is connected. All supplied choices are validated before configuration, and request values are treated as literal inputs.
 
+## Portable agent skill
+
+The [Arduino board provisioning skill](../.agents/skills/arduino-board-provision/SKILL.md) turns natural-language setup requests into this unattended workflow. It supports setup and Wi-Fi updates, including optional SSH integration. Keep a complete checkout or extracted release of the tool installed; copying the skill alone does not install the launchers or ADB.
+
+The skill uses the [Agent Skills standard](https://agentskills.io). Its source folder is `.agents/skills/arduino-board-provision/` at the repository root.
+
+| Agent | Installation |
+| --- | --- |
+| Codex | The source folder is already in its repository skill location. Open this repository and reload skills or start a new session if needed. |
+| Claude Code | Copy the entire `arduino-board-provision` folder into `.claude/skills/` in the project where you want to use it, or into your personal skill directory. |
+| Other Agent Skills hosts | Copy the same folder into the host's documented skill directory. |
+
+See the official [Codex skill guide](https://developers.openai.com/codex/skills) and [Claude Code skill guide](https://code.claude.com/docs/en/skills) for discovery and invocation details. The optional `agents/openai.yaml` supplies Codex display metadata; the workflow is in `SKILL.md` and does not require Codex-specific tools.
+
+After installation, ask:
+
+```text
+Provision my Uno Q as lab-q and connect it to Workshop using my saved Wi-Fi credentials. Keep its existing Linux password and Network Mode.
+```
+
+Codex also supports explicit `$arduino-board-provision` invocation; Claude Code uses `/arduino-board-provision`. Give the agent the tool's installation location if it is outside the current workspace, and identify the protected request file or available local secret-manager entry. Do not paste passwords into chat. For a fresh board, also choose a new Linux-password source and approve enabling Network Mode.
+
+The agent needs local command execution and USB/ADB access on the computer connected to the board. Missing credentials or ambiguous device selection require clarification before configuration. A skill does not grant hardware permissions or provide a connection from a cloud agent to local USB. This setup skill does not perform resets; explicit reset requests use the separate contract below.
+
 ## Agent workflow
 
 1. Use the authorization already given for the requested operation; do not ask for it again. For documentation or hardware-free checks, use the mocked suites in the [technical reference](technical.md#hardware-free-checks) instead of contacting a board.
@@ -46,28 +70,88 @@ Nonempty keyboard codes use only letters, digits, underscores, or hyphens, match
 
 Supply secrets through the private request file, not shell arguments, shell history, environment variables, or terminal transcripts. The request file stays on the host, and the result contains no credentials. Create requests outside this repository; retain/delete them according to your credential-storage policy.
 
+## Prepare and use a private request file
+
+Humans can pass the same request file directly to a host launcher or give its path to the provisioning skill. It contains the complete setup request, including any needed passwords. Prepare it in a private editor or with an available local secret manager; keep its contents out of chat and captured output.
+
+For an **already provisioned board**, this request changes the hostname and connects Wi-Fi while preserving the keyboard, Linux password, and Network Mode:
+
+```text
+ARDUINO_BOARD_REQUEST_V1
+hostname=lab-q
+keyboard=
+wifi=connect
+ssid=Workshop
+wifi_password=<YOUR_WIFI_PASSWORD>
+linux_password=keep
+network_mode=keep
+```
+
+For a **fresh board**, use a new Linux password and approve enabling Network Mode:
+
+```text
+ARDUINO_BOARD_REQUEST_V1
+hostname=lab-q
+keyboard=
+wifi=connect
+ssid=Workshop
+wifi_password=<YOUR_WIFI_PASSWORD>
+linux_password=set
+new_password=<YOUR_NEW_LINUX_PASSWORD>
+network_mode=enable
+```
+
+Replace the example hostname/SSID and password placeholders locally; the angle brackets are not part of the passwords. Do not quote or escape values, add blank lines, or duplicate keys. Save as **UTF-8 without a BOM**. First-use setup and Linux-password changes require `network_mode=enable`; Wi-Fi-only updates on a provisioned board can keep both the Linux password and Network Mode.
+
+### Linux/macOS storage and launcher
+
 On Linux/macOS, create a private directory (`mkdir -m 700 /absolute/path/private-directory`) before writing credentials. The request must belong to your account and have owner-only permissions, for example `chmod 600 /absolute/path/private-directory/request.txt`. Run:
 
 ```sh
-bash ./board-host.sh setup --serial YOUR_DEVICE_SERIAL --request-file /absolute/path/private-directory/request.txt
+board_serial=YOUR_DEVICE_SERIAL
+request_file=/absolute/path/private-directory/request.txt
+bash ./board-host.sh setup --serial "$board_serial" --request-file "$request_file"
 ```
 
-On Windows, use a private directory whose ACL grants file access to your account (SYSTEM/Administrators are also permitted). Restrict the directory **before** writing credentials. For example:
+### Windows storage and launcher
+
+Use a private directory outside the repository whose ACL grants file access to your account (SYSTEM/Administrators are also permitted by the launcher). Restrict the directory **before** writing credentials. The following creates a persistent request directory under `%LOCALAPPDATA%\ArduinoBoardWizard\requests\`, opens the file in Notepad, and displays its full path:
 
 ```powershell
-$requestDir = Join-Path ([IO.Path]::GetTempPath()) ('board-request-' + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path $requestDir | Out-Null
+$requestDir = Join-Path $env:LOCALAPPDATA ('ArduinoBoardWizard\requests\' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $requestDir -Force | Out-Null
 $acl = Get-Acl -LiteralPath $requestDir
 $acl.SetAccessRuleProtection($true, $false)
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent().User
 $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($identity, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
 Set-Acl -LiteralPath $requestDir -AclObject $acl
 $requestFile = Join-Path $requestDir 'request.txt'
-# Save the chosen request into $requestFile as UTF-8 without a BOM, using a private editor or secret manager.
-.\board-host.ps1 -Operation setup -Serial YOUR_DEVICE_SERIAL -RequestFile $requestFile
+notepad.exe $requestFile
+$requestFile
 ```
 
+Save the chosen request as UTF-8 without a BOM. Then run the following from the **repository root**, in the same PowerShell session so `$requestFile` remains defined. Use the intended board's serial from an entry listed as `device` by `adb devices -l`:
+
+```powershell
+$boardSerial = 'YOUR_DEVICE_SERIAL'
+.\board-host.ps1 -Operation setup -Serial $boardSerial -RequestFile $requestFile
+```
+
+### Pass the file to the skill
+
+Include the full request-file path in the same message as the skill invocation; replace `<full path>` with the displayed path, not the literal variable name `$requestFile`:
+
+```text
+$arduino-board-provision Provision my board using the private request file at <full path>.
+```
+
+For Claude Code, use `/arduino-board-provision` with the same request. The agent checks the private file and supplies its path to the launcher; passwords stay in protected local storage. If additional requested settings conflict with the file, resolve those choices before configuration. Keep generated Linux credentials available for future login, and retain the protected request if an operation fails.
+
+## Reset requests
+
 For reset, select `reset`/`-Operation reset` and supply a reset request with `confirm=RESET`. Privileged operations authenticate before configuration. Passwords, apps, files, and SSH keys remain preserved.
+
+## Results and failure handling
 
 For valid unattended invocations, stdout contains one JSON object; diagnostics go to stderr:
 

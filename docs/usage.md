@@ -2,6 +2,8 @@
 
 For the launcher commands, see the [quick start](../README.md#host-launchers). Configure your terminal using the [ADB and host prerequisites](adb.md). For local-console use or manual transfers, see the [manual guide](manual-transfer.md).
 
+To supply setup choices through a private file, follow the [request-file templates, storage, and invocation walkthrough](unattended.md#prepare-and-use-a-private-request-file). Use that file with the host launcher directly or pass its path to the provisioning skill.
+
 ## Setup
 
 ### Setup wizard prompts

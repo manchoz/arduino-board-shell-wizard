@@ -12,6 +12,7 @@ Host launchers remain at the repository root. Board tools live together in `boar
 - [ADB setup](docs/adb.md) owns host prerequisites, bundled ADB paths, `PATH` configuration, and device selection. Check for App Lab/IDE-provided ADB before recommending another installation; those copies may not be on `PATH`.
 - [Interactive usage](docs/usage.md) owns detailed wizard choices, verification commands, reset precautions, and troubleshooting. [Manual transfer](docs/manual-transfer.md) owns direct board-console use, uploads, session variables, and cleanup.
 - [Unattended use](docs/unattended.md) owns the literal request/result contract. [Technical reference](docs/technical.md) owns implementation choices, regression guidance, and developer checks. [Verification](docs/verification.md) owns completed hardware evidence.
+- The [portable provisioning skill](.agents/skills/arduino-board-provision/SKILL.md) owns the reusable agent workflow; installation is documented in the [unattended guide](docs/unattended.md#portable-agent-skill). Resolve runtime guides from the installed tool root so copies of the skill work in other agents. Keep the request contract in its existing guide rather than duplicating it in the skill.
 - Put detail in its owning guide and link from the quick start. When moving content, preserve commands, field tables, result semantics, and safety precautions; update inbound links, relative paths, and context-dependent wording. State the working directory and define required variables in each workflow.
 
 ## Repository work
