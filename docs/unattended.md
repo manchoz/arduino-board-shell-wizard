@@ -10,25 +10,9 @@ Use an explicit device serial and a private request file for unattended setup or
 
 The [Arduino board provisioning skill](../.agents/skills/arduino-board-provision/SKILL.md) turns natural-language setup requests into this unattended workflow. It supports setup and Wi-Fi updates, including optional SSH integration. Keep a complete checkout or extracted release of the tool installed; copying the skill alone does not install the launchers or ADB.
 
-The skill uses the [Agent Skills standard](https://agentskills.io). Its source folder is `.agents/skills/arduino-board-provision/` at the repository root.
+Follow [Enable board provisioning in your agent workspace](agent-workspace.md) to install the local tool and project skill, record the tool location, check workspace readiness, and provision several boards using private requests. That guide includes personal installation alternatives and agent-specific discovery links.
 
-| Agent | Installation |
-| --- | --- |
-| Codex | The source folder is already in its repository skill location. Open this repository and reload skills or start a new session if needed. |
-| Claude Code | Copy the entire `arduino-board-provision` folder into `.claude/skills/` in the project where you want to use it, or into your personal skill directory. |
-| Other Agent Skills hosts | Copy the same folder into the host's documented skill directory. |
-
-See the official [Codex skill guide](https://developers.openai.com/codex/skills) and [Claude Code skill guide](https://code.claude.com/docs/en/skills) for discovery and invocation details. The optional `agents/openai.yaml` supplies Codex display metadata; the workflow is in `SKILL.md` and does not require Codex-specific tools.
-
-After installation, ask:
-
-```text
-Provision my Uno Q as lab-q and connect it to Workshop using my saved Wi-Fi credentials. Keep its existing Linux password and Network Mode.
-```
-
-Codex also supports explicit `$arduino-board-provision` invocation; Claude Code uses `/arduino-board-provision`. Give the agent the tool's installation location if it is outside the current workspace, and identify the protected request file or available local secret-manager entry. Do not paste passwords into chat. For a fresh board, also choose a new Linux-password source and approve enabling Network Mode.
-
-The agent needs local command execution and USB/ADB access on the computer connected to the board. Missing credentials or ambiguous device selection require clarification before configuration. A skill does not grant hardware permissions or provide a connection from a cloud agent to local USB. This setup skill does not perform resets; explicit reset requests use the separate contract below.
+The agent needs local command execution and USB/ADB access on the computer connected to the board. Give it the local tool root and a protected request-file path or available secret-manager entry; keep passwords out of chat. Missing credentials or ambiguous device selection require clarification before configuration. For a fresh board, choose a new Linux-password source and approve enabling Network Mode. This setup skill does not perform resets; explicit reset requests use the separate contract below.
 
 ## Agent workflow
 

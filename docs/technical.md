@@ -9,7 +9,7 @@ For basic launcher commands, see the [quick start](../README.md). Host prerequis
 | Root | `board-host.sh` and `board-host.ps1`, plus README, agent guidance, and Git configuration. |
 | `board/` | Setup/reset wizards, unattended request worker, and shared board operations. |
 | `host/` | Optional SSH key and client-config helpers used by the host launchers. |
-| `.agents/skills/` | Portable provisioning instructions with optional Codex display metadata; installation is in the [unattended guide](unattended.md#portable-agent-skill). |
+| `.agents/skills/` | Portable provisioning instructions with optional Codex display metadata; installation is in the [workspace guide](agent-workspace.md#3-enable-the-skill-in-your-project). |
 | `tests/` | Hardware-free Bash and PowerShell test suites. |
 | `docs/` | Technical reference, development checks, and verification evidence. |
 
