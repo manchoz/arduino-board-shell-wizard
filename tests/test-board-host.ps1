@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 # Run with Windows PowerShell 5.1; its compiler produces a runnable fake adb.exe.
 param([string]$HostShell = 'powershell.exe')
 $ErrorActionPreference = 'Stop'

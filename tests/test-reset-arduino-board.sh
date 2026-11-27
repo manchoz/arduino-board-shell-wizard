@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MPL-2.0
 # Hardware-free checks; all HTTP requests are mocked.
 set -Eeuo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."

@@ -1,0 +1,11 @@
+{
+  "name": "arduino-board-shell-wizard",
+  "version": "0.3.0",
+  "description": "Provision Arduino Uno Q and Ventuno Q boards over USB/ADB using protected requests and bundled shell tools.",
+  "author": { "name": "manchoz", "url": "https://github.com/manchoz" },
+  "homepage": "https://github.com/manchoz/arduino-board-shell-wizard",
+  "repository": "https://github.com/manchoz/arduino-board-shell-wizard",
+  "license": "MPL-2.0",
+  "keywords": ["arduino", "uno-q", "ventuno-q", "adb", "provisioning"],
+  "skills": "./.agents/skills/"
+}

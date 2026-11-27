@@ -10,6 +10,8 @@ For basic launcher commands, see the [quick start](../README.md). Host prerequis
 | `board/` | Setup/reset wizards, unattended request worker, and shared board operations. |
 | `host/` | Optional SSH key and client-config helpers used by the host launchers. |
 | `.agents/skills/` | Portable provisioning instructions with optional Codex display metadata; installation is in the [workspace guide](agent-workspace.md#3-enable-the-skill-in-your-project). |
+| `.codex-plugin/`, `.claude-plugin/`, `.agents/plugins/` | Native plugin manifests and marketplace catalogs; the [distribution guide](plugin-distribution.md) owns packaging and publication. |
+| `scripts/` | Developer-only portable ZIP packager; runtime provisioning uses the existing launchers. |
 | `tests/` | Hardware-free Bash and PowerShell test suites. |
 | `docs/` | Technical reference, development checks, and verification evidence. |
 
@@ -162,6 +164,14 @@ bash tests/test-board-scripts.sh
 bash tests/test-board-request.sh
 bash tests/test-board-host.sh
 ```
+
+Packaging checks use Python 3.10 or later, Git, and disposable repositories:
+
+```sh
+python3 tests/test-plugin-package.py
+```
+
+On Windows use `python tests/test-plugin-package.py`. These check the committed-revision export, portable/native metadata, duplicated skill bytes, LF files, missing/unsafe inputs, and output-file preservation. See [checkout validation](plugin-distribution.md#test-the-current-checkout) and [local Codex/Claude testing](agent-workspace.md#test-a-local-bundle-without-hardware) for commands using disposable profiles and a hardware-free readiness prompt.
 
 Run the Bash host tests on native Linux/macOS; Windows Git Bash does not establish POSIX file-permission behavior. Windows host checks use a temporary fake ADB executable compiled by Windows PowerShell's installed .NET compiler:
 

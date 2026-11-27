@@ -8,11 +8,11 @@ Use an explicit device serial and a private request file for unattended setup or
 
 ## Portable agent skill
 
-The [Arduino board provisioning skill](../.agents/skills/arduino-board-provision/SKILL.md) turns natural-language setup requests into this unattended workflow. It supports setup and Wi-Fi updates, including optional SSH integration. Keep a complete checkout or extracted release of the tool installed; copying the skill alone does not install the launchers or ADB.
+The [Arduino board provisioning skill](../.agents/skills/arduino-board-provision/SKILL.md) turns natural-language setup requests into this unattended workflow. It supports setup and Wi-Fi updates, including optional SSH integration. Keep a complete checkout or extracted release of the tool installed, or use the [bundled plugin](agent-workspace.md#alternative-install-the-bundled-plugin). Copying the standalone skill alone does not install the launchers or ADB.
 
 Follow [Enable board provisioning in your agent workspace](agent-workspace.md) to install the local tool and project skill, record the tool location, check workspace readiness, and provision several boards using private requests. That guide includes personal installation alternatives and agent-specific discovery links.
 
-The agent needs local command execution and USB/ADB access on the computer connected to the board. Give it the local tool root and a protected request-file path or available secret-manager entry; keep passwords out of chat. Missing credentials or ambiguous device selection require clarification before configuration. For a fresh board, choose a new Linux-password source and approve enabling Network Mode. This setup skill does not perform resets; explicit reset requests use the separate contract below.
+The agent needs local command execution and USB/ADB access on the computer connected to the board. Give a standalone skill the local tool root; a plugin resolves its bundled root. Supply a protected request-file path or available secret-manager entry and keep passwords out of chat. Missing credentials or ambiguous device selection require clarification before configuration. For a fresh board, choose a new Linux-password source and approve enabling Network Mode. This setup skill does not perform resets; explicit reset requests use the separate contract below.
 
 ## Agent workflow
 

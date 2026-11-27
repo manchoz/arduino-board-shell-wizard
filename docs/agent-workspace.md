@@ -2,7 +2,7 @@
 
 Use this walkthrough when you are developing an Uno Q project with an agent and want to prepare several boards as deployment targets. It also applies to Ventuno Q boards running the official Linux image. Enable the workspace once, then ask the agent to provision each board through `board-host`.
 
-The skill supplies instructions; a separate local wizard installation supplies the scripts. The agent reads those local scripts and guides and invokes the host launcher. It does not automatically download them from GitHub. This workflow prepares board settings and access; deploy your application afterward using your project's deployment workflow.
+A project skill can use a separate local wizard installation, as in steps 2–4. Codex and Claude Code also support the [bundled plugin alternative](#alternative-install-the-bundled-plugin), which installs the instructions, scripts, and guides together. During provisioning the agent reads local files and invokes the host launcher; it does not download scripts automatically. This workflow prepares board settings and access; deploy your application afterward using your project's deployment workflow.
 
 ## 1. Prepare the host
 
@@ -68,6 +68,78 @@ Open the application project in your agent and confirm that it discovers `arduin
 
 For use across all your projects, copy the same folder into the host's personal skill directory instead: `~/.agents/skills/` for Codex or `~/.claude/skills/` for Claude Code. On Windows, `~` is your user-profile directory. Choose project or personal installation to avoid duplicate skill entries. Recopying the skill and updating the wizard are separate operations; keep them from the same revision when updating.
 
+## Alternative: install the bundled plugin
+
+This alternative replaces steps 2–4 for Codex and Claude Code. Complete the host preparation in step 1 first. The plugin includes the wizard and resolves its installed tool root automatically, so a separate tool-root instruction is unnecessary. Keep private requests outside the plugin cache as well as the application repository.
+
+**Availability:** these commands require a published repository revision containing the plugin manifests/catalogs (plugin version `0.3.0` or later). The existing `v0.2.0` release supplies the standalone skill only. See [packaging and publication](plugin-distribution.md) for the portable ZIP and directory requirements.
+
+Run the matching commands from your **application workspace**. GitHub installation downloads the full plugin at installation time; subsequent provisioning uses its cached local scripts.
+
+Codex CLI, with plugin support:
+
+```sh
+codex plugin marketplace add manchoz/arduino-board-shell-wizard
+codex plugin add arduino-board-shell-wizard@manchoz-arduino
+```
+
+Claude Code, using project installation:
+
+```sh
+claude plugin marketplace add manchoz/arduino-board-shell-wizard
+claude plugin install arduino-board-shell-wizard@manchoz-arduino --scope project
+```
+
+Start a new agent session after installation. Use the natural-language prompts below, or explicitly invoke `$arduino-board-shell-wizard:arduino-board-provision` in Codex and `/arduino-board-shell-wizard:arduino-board-provision` in Claude Code. Avoid enabling a copied standalone version of the same skill alongside the plugin. Codex installation settings are managed by its client; use the standalone project installation above when you need project-local skill files.
+
+Continue at step 5 and omit the `Arduino Shell Wizard tool root` line from plugin prompts. The agent should report the bundled revision and locate the tools from the installed skill path. An explicitly requested external installation takes precedence; remove an obsolete personal tool-root instruction if you intend to use the bundle instead.
+
+### Test a local bundle without hardware
+
+You can test local installation before publishing to GitHub. Use a clean native export containing the plugin files or an extracted portable ZIP. A preview ZIP supplied by your agent also works before the implementation is committed. The [local validation guide](plugin-distribution.md#test-the-current-checkout) covers checkout checks and the committed-revision requirement for building your own ZIP.
+
+On Windows, open a **new PowerShell terminal at the exported or extracted plugin root**. Keep the disposable agent profiles outside that root, so installation cannot copy profile data into the bundle. These commands use temporary profiles rather than your normal agent configuration.
+
+Codex:
+
+```powershell
+$codexTestHome = Join-Path ([IO.Path]::GetTempPath()) ('codex-wizard-test-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $codexTestHome | Out-Null
+$env:CODEX_HOME = $codexTestHome
+codex plugin marketplace add .
+codex plugin add arduino-board-shell-wizard@manchoz-arduino
+codex plugin list
+```
+
+After installation, change to a separate application workspace and start `codex` in the **same terminal**. A fresh profile may require `codex login` first. Before signing in, protect the test-profile directory using the [Windows private-directory ACL pattern](unattended.md#windows-storage-and-launcher); apply it to `$codexTestHome` instead of the request directory. Keep sign-in credentials out of chat.
+
+Claude Code:
+
+```powershell
+$claudeTestHome = Join-Path ([IO.Path]::GetTempPath()) ('claude-wizard-test-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $claudeTestHome | Out-Null
+$env:CLAUDE_CONFIG_DIR = $claudeTestHome
+claude --plugin-dir .
+```
+
+This loads the local folder directly. For a test from another application workspace, pass the exported plugin root's absolute path to `--plugin-dir` instead of `.`. If the client requests sign-in, protect `$claudeTestHome` with the same private-directory pattern first and follow its sign-in instructions.
+
+In the test session, send this prompt. For Claude Code, replace the first line with `Use /arduino-board-shell-wizard:arduino-board-provision.`:
+
+```text
+Use $arduino-board-shell-wizard:arduino-board-provision.
+Check provisioning readiness without hardware.
+Resolve the bundled tool root and read its agent and unattended guides.
+Confirm the launchers, board scripts, host helpers, and guides are present.
+Locate ADB and check its version only.
+Do not list devices, contact a board, launch setup, or change SSH config.
+Report missing requirements.
+```
+
+Expect the agent to locate the installed bundle and report available or missing host requirements without asking for a separately installed wizard. This checks discovery and workspace readiness; it does not verify board configuration or Wi-Fi/SSH reachability. An agent already working in this wizard repository can also use its discovered skill with this prompt, but that alone does not test installation into a different workspace.
+
+Close the test terminal when finished; the environment overrides apply only to that terminal and its child processes. Remove only the disposable profile/export directories you created when you no longer need them, including any test-profile sign-in data. Do not put `CODEX_HOME` or `CLAUDE_CONFIG_DIR` test overrides in persistent user environment settings.
+
 ## 4. Record how your agent finds the tool
 
 Merge this snippet into your project's agent instructions, such as `AGENTS.md`, `CLAUDE.md`, or the equivalent supported by your host. Preserve the project's existing instructions.
@@ -94,7 +166,7 @@ Preserve existing instruction content and keep machine-specific paths out of sha
 
 ## 5. Check workspace readiness without hardware
 
-Ask the agent from your **application workspace**, replacing the tool-root placeholder with its absolute path:
+Ask the agent from your **application workspace**, replacing the tool-root placeholder with its absolute path for standalone installation. Plugin users omit that line and ask the agent to resolve its bundled tool root:
 
 ```text
 Use the arduino-board-provision skill to check this project's provisioning readiness.
@@ -145,7 +217,7 @@ Do not retry configuration automatically or print request contents or passwords.
 Report the tool revision/hash, each board's result, and the checks actually performed.
 ```
 
-Codex supports explicit `$arduino-board-provision` invocation; Claude Code uses `/arduino-board-provision`. Other hosts use their documented invocation mechanism. If the agent cannot match a board or needs a missing credential or setup choice, resolve that before configuration. If a private request conflicts with your prompt, resolve the conflict first.
+For standalone skills, Codex supports explicit `$arduino-board-provision` invocation and Claude Code uses `/arduino-board-provision`. Plugin installation uses `$arduino-board-shell-wizard:arduino-board-provision` in Codex and `/arduino-board-shell-wizard:arduino-board-provision` in Claude Code. Plugin users omit the tool-root line in the prompt. Other hosts use their documented invocation mechanism. If the agent cannot match a board or needs a missing credential or setup choice, resolve that before configuration. If a private request conflicts with your prompt, resolve the conflict first.
 
 The agent runs the matching [host launcher command](unattended.md#prepare-and-use-a-private-request-file) from the **wizard tool root**, using the selected serial and private request-file path. The launcher transfers and verifies the board scripts, sends the request through stdin, and cleans up uploaded scripts afterward.
 

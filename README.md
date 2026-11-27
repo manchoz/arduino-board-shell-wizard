@@ -79,7 +79,7 @@ New Linux passwords need at least eight characters, must not contain `arduino` (
 
 ## Provision boards with an agent
 
-Use an agent to prepare one or more Uno Q / Ventuno Q boards as deployment targets for your project. Follow [Enable board provisioning in your agent workspace](docs/agent-workspace.md) for installation, workspace setup, private requests, and provisioning prompts.
+Use an agent to prepare one or more Uno Q / Ventuno Q boards as deployment targets for your project. Follow [Enable board provisioning in your agent workspace](docs/agent-workspace.md) for project skill installation or a [Codex/Claude plugin bundling the tools](docs/agent-workspace.md#alternative-install-the-bundled-plugin), private requests, and provisioning prompts.
 
 ## Private request files and agents
 
@@ -122,3 +122,5 @@ Launchers clean up automatically and report cleanup failures. See [troubleshooti
 - [Technical reference and development](docs/technical.md)
 - [Agent guide](AGENTS.md)
 - [Completed verification record](docs/verification.md)
+
+Licensed under [MPL-2.0](LICENSE); see the [privacy notice](docs/privacy.md).

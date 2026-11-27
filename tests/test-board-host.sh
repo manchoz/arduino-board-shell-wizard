@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MPL-2.0
 # Host transport tests use a fake adb; no hardware is accessed.
 set -Eeuo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)

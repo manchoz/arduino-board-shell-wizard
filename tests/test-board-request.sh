@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MPL-2.0
 # Test the real unattended worker with harmless board command mocks.
 # shellcheck disable=SC2016 # Test passwords deliberately contain literal dollar signs.
 set -Eeuo pipefail

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 # Optional host SSH integration for PowerShell 5.1/7.
 function Read-SshPublicKey {
     param([string]$Path)

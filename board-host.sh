@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MPL-2.0
 # Host launcher; compatible with macOS's supplied Bash 3.2.
 set -u
 operation=setup

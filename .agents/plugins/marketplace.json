@@ -1,0 +1,12 @@
+{
+  "name": "manchoz-arduino",
+  "interface": { "displayName": "Arduino Board Tools by manchoz" },
+  "plugins": [
+    {
+      "name": "arduino-board-shell-wizard",
+      "source": { "source": "local", "path": "./" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 ---
 name: arduino-board-provision
 description: Provision or update Arduino Uno Q and Ventuno Q boards over USB/ADB with the Arduino Q Board Shell Wizard. Use for board setup, hostname or keyboard changes, Wi-Fi connection, and optional SSH access through the existing unattended request interface.
+license: MPL-2.0
 ---
 
 # Arduino Q board provisioning
@@ -9,7 +10,9 @@ Use the installed host launcher and its literal request interface. This workflow
 
 ## Locate the tool and its guides
 
-Find a complete local checkout or extracted release of Arduino Q Board Shell Wizard using the user's supplied location or the current workspace. Identify it by `board-host.sh`, `board-host.ps1`, `board/board-request.sh`, `board/board-common.sh`, and `host/`. If no installation is available, ask for its location or direct the user to https://github.com/manchoz/arduino-board-shell-wizard/releases.
+When installed as a plugin, locate its bundled tool by walking upward from the host-supplied absolute path of this `SKILL.md` until a complete tool root is found. In Claude plugin skills, `${CLAUDE_PLUGIN_ROOT}` also identifies that root. Use the bundled installation unless the user explicitly requests another installation. Do not assume the application's working directory is the plugin root.
+
+For a copied standalone skill, use the user's supplied `Arduino Shell Wizard tool root` or a complete installation in the current workspace. Identify a complete root by `board-host.sh`, `board-host.ps1`, all four `board/` scripts, both `host/` helpers, `AGENTS.md`, and the `docs/` guides. If no installation is available, ask for its location or direct the user to https://github.com/manchoz/arduino-board-shell-wizard/releases. A copied skill without surrounding tools must use this fallback; do not search unrelated user directories.
 
 Resolve all following paths from that **tool root**, not this skill's folder. The skill may have been copied into another agent or installed globally.
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 # Windows launcher, supporting Windows PowerShell 5.1 and PowerShell 7.
 [CmdletBinding()]
 param(

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MPL-2.0
 # Exercise script control flow with board/input fixtures and harmless command mocks.
 # shellcheck disable=SC2032 # sudo is a test function that intercepts privileged commands.
 set -Eeuo pipefail

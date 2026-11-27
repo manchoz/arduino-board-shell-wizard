@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MPL-2.0
 # Board operations shared by the interactive wizards and the unattended worker.
 
 verify_board() {

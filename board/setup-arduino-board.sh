@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MPL-2.0
 # Interactive App Lab-style first setup for official Arduino Uno Q / Ventuno Q images.
 # Uses only the board's installed command-line tools; no external language libraries.
 set -Eeuo pipefail

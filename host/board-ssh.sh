@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MPL-2.0
 # Host SSH integration; compatible with Bash 3.2.
 # shellcheck disable=SC2034,SC2154 # Globals are shared with the sourcing launcher.
 

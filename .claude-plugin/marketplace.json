@@ -1,0 +1,11 @@
+{
+  "name": "manchoz-arduino",
+  "owner": { "name": "manchoz" },
+  "plugins": [
+    {
+      "name": "arduino-board-shell-wizard",
+      "source": "./",
+      "description": "Provision Arduino Q boards using bundled local tools and protected requests."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "arduino-board-shell-wizard",
+  "version": "0.3.0",
+  "description": "Provision Arduino Uno Q and Ventuno Q boards over USB/ADB using protected requests and bundled shell tools.",
+  "author": { "name": "manchoz", "url": "https://github.com/manchoz" },
+  "homepage": "https://github.com/manchoz/arduino-board-shell-wizard",
+  "repository": "https://github.com/manchoz/arduino-board-shell-wizard",
+  "license": "MPL-2.0",
+  "keywords": ["arduino", "uno-q", "ventuno-q", "adb", "provisioning"],
+  "skills": "./.agents/skills/",
+  "requires_local_executor": true,
+  "interface": {
+    "displayName": "Arduino Q Board Shell Wizard",
+    "shortDescription": "Provision Arduino Q boards over USB/ADB",
+    "longDescription": "Bundle the provisioning skill and local board tools. Requires local command execution, ADB, and a USB-connected board running the official Linux image. Uses protected request files for credentials and explicit device serials.",
+    "developerName": "manchoz",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/manchoz/arduino-board-shell-wizard",
+    "privacyPolicyURL": "https://github.com/manchoz/arduino-board-shell-wizard/blob/main/docs/privacy.md",
+    "termsOfServiceURL": "https://github.com/manchoz/arduino-board-shell-wizard/blob/main/LICENSE",
+    "defaultPrompt": ["Check my workspace's Arduino board provisioning readiness without contacting hardware.", "Provision my selected Arduino Q board using my protected request file."]
+  }
+}
